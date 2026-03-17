@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Miner Dino · First Creation</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            user-select: none;
+        }
+        
+        body {
+            background: #0a0f1a;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            font-family: 'Arial', sans-serif;
+        }
+        
+        .game-container {
+            position: relative;
+            width: 800px;
+            max-width: 100%;
+            background: #1a1f2e;
+            border-radius: 20px;
+            padding: 20px;
+            border: 3px solid #4a4a6a;
+        }
+        
+        canvas {
+            display: block;
+            width: 100%;
+            height: auto;
+            background: #2a3145;
+            border-radius: 10px;
+            cursor: pointer;
+            touch-action: manipulation;
+        }
+        
+        #ui-overlay {
+            position: absolute;
+            top: 40px;
+            left: 40px;
+            right: 40px;
+            display: flex;
+            justify-content: space-between;
+            color: white;
+            font-size: 24px;
+            font-weight: bold;
+            pointer-events: none;
+            z-index: 10;
+        }
+        
+        .score {
+            background: rgba(0,0,0,0.5);
+            padding: 10px 20px;
+            border-radius: 10px;
+            border: 2px solid #ffd966;
+            color: #ffd966;
+        }
+        
+        .wallet-status {
+            background: rgba(0,0,0,0.5);
+            padding: 10px 20px;
+            border-radius: 10px;
+            border: 2px solid #4aff4a;
+            color: #4aff4a;
+            font-size: 16px;
+        }
+        
+        .wallet-status.disconnected {
+            border-color: #ff6b6b;
+            color: #ff6b6b;
+        }
+        
+        .game-over {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.95);
+            padding: 40px;
+            border-radius: 20px;
+            border: 3px solid #ffd966;
+            text-align: center;
+            display: none;
+            z-index: 20;
+            min-width: 350px;
+        }
+        
+        .game-over h2 {
+            color: #ffd966;
+            font-size: 48px;
+            margin-bottom: 20px;
+        }
+        
+        .game-over .final-score {
+            color: #4aff4a;
+            font-size: 64px;
+            margin: 20px 0;
+        }
+        
+        .game-over .stats {
+            color: #fff;
+            font-size: 18px;
+            margin: 15px 0;
+            text-align: left;
+            background: #2a3145;
+            padding: 15px;
+            border-radius: 10px;
+        }
+        
+        .game-over button {
+            background: #4a9eff;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 24px;
+            border-radius: 10px;
+            cursor: pointer;
+            margin-top: 20px;
+            width: 100%;
+            border: 2px solid white;
+        }
+        
+        .start-screen {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            z-index: 15;
+            background: rgba(0,0,0,0.9);
+            padding: 50px;
+            border-radius: 30px;
+            border: 3px solid #ffd966;
+            min-width: 400px;
+        }
+        
+        .start-screen h1 {
+            color: #ffd966;
+            font-size: 64px;
+            margin-bottom: 30px;
+        }
+        
+        .start-screen button {
+            background: #4a9eff;
+            color: white;
+            border: none;
+            padding: 20px 40px;
+            font-size: 32px;
+            border-radius: 15px;
+            cursor: pointer;
+            border: 2px solid white;
+            margin: 10px 0;
+        }
+        
+        .start-screen .hint {
+            color: #8f9bb5;
+            margin-top: 20px;
+            font-size: 18px;
+        }
+        
+        .combo {
+            position: absolute;
+            top: 100px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #ffd966;
+            font-size: 32px;
+            font-weight: bold;
+            animation: pop 0.5s;
+        }
+        
+        @keyframes pop {
+            0% { transform: translateX(-50%) scale(0.5); opacity: 0; }
+            50% { transform: translateX(-50%) scale(1.2); opacity: 1; }
+            100% { transform: translateX(-50%) scale(1); opacity: 0; }
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <div id="ui-overlay">
+            <div class="score" id="scoreDisplay">0</div>
+            <div class="wallet-status disconnected" id="walletDisplay">🔗 Not Connected</div>
+        </div>
+        
+        <canvas id="gameCanvas" width="800" height="400"></canvas>
+        
+        <div class="start-screen" id="startScreen">
+            <h1>MINER DINO</h1>
+            <button id="startButton">⛏️ START GAME</button>
+            <div class="hint">⬆️ SPACE or TAP to JUMP</div>
+        </div>
+        
+        <div class="game-over" id="gameOverScreen">
+            <h2>GAME OVER</h2>
+            <div class="final-score" id="finalScore">0</div>
+            <div class="stats">
+                <div>⛏️ Obstacles: <span id="obstaclesPassed">0</span></div>
+                <div>💰 Points Earned: <span id="pointsEarned">0</span></div>
+            </div>
+            <button id="restartButton">PLAY AGAIN</button>
+        </div>
+        
+        <div id="comboDisplay" class="combo" style="display: none;"></div>
+    </div>
+
+    <script>
+        // ============================================
+        // TELEGRAM WEB APP
+        // ============================================
+        const tg = window.Telegram?.WebApp;
+        if (tg) {
+            tg.ready();
+            tg.expand();
+        }
+
+        // ============================================
+        // CANVAS SETUP
+        // ============================================
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // UI Elements
+        const scoreDisplay = document.getElementById('scoreDisplay');
+        const finalScore = document.getElementById('finalScore');
+        const obstaclesPassedSpan = document.getElementById('obstaclesPassed');
+        const pointsEarnedSpan = document.getElementById('pointsEarned');
+        const walletDisplay = document.getElementById('walletDisplay');
+        const startScreen = document.getElementById('startScreen');
+        const gameOverScreen = document.getElementById('gameOverScreen');
+        const comboDisplay = document.getElementById('comboDisplay');
+
+        // ============================================
+        // GAME VARIABLES
+        // ============================================
+        let gameRunning = false;
+        let score = 0;
+        let obstaclesPassed = 0;
+        let combo = 0;
+        let comboTimeout;
+        
+        // Player
+        let player = {
+            x: 100,
+            y: 250,
+            width: 30,
+            height: 50,
+            vy: 0,
+            grounded: true
+        };
+        
+        // Obstacles
+        let obstacles = [];
+        
+        // Constants
+        const GROUND_Y = 300;
+        const GRAVITY = 0.8;
+        const JUMP_FORCE = -15;
+        
+        // Frame counter
+        let frameCount = 0;
+        let spawnTimer = 30;
+        
+        // Wallet (simulated - will be set by Telegram)
+        let walletConnected = false;
+
+        // ============================================
+        // CHECK WALLET FROM TELEGRAM
+        // ============================================
+        if (tg && tg.initDataUnsafe?.user) {
+            // In a real implementation, you'd check if this user has wallet
+            // For now, we'll just show the option
+            walletDisplay.innerText = '🔗 Connect in Bot';
+        }
+
+        // ============================================
+        // GAME FUNCTIONS
+        // ============================================
+        function startGame() {
+            gameRunning = true;
+            score = 0;
+            obstaclesPassed = 0;
+            combo = 0;
+            player.y = GROUND_Y - player.height;
+            player.vy = 0;
+            obstacles = [];
+            frameCount = 0;
+            spawnTimer = 30;
+            
+            startScreen.style.display = 'none';
+            gameOverScreen.style.display = 'none';
+            updateScore();
+        }
+
+        function jump() {
+            if (!gameRunning) return;
+            if (player.grounded) {
+                player.vy = JUMP_FORCE;
+                player.grounded = false;
+            }
+        }
+
+        function spawnObstacle() {
+            const height = 35 + Math.floor(Math.random() * 25);
+            obstacles.push({
+                x: canvas.width,
+                y: GROUND_Y - height,
+                width: 18,
+                height: height,
+                passed: false
+            });
+        }
+
+        function showCombo() {
+            if (combo >= 2) {
+                comboDisplay.style.display = 'block';
+                comboDisplay.innerText = `${combo}x COMBO!`;
+                setTimeout(() => {
+                    comboDisplay.style.display = 'none';
+                }, 500);
+            }
+        }
+
+        function updateScore() {
+            scoreDisplay.innerText = score;
+        }
+
+        function calculatePoints() {
+            let points = obstaclesPassed * 10;
+            if (combo > 1) points += combo * 5;
+            if (walletConnected) points = Math.floor(points * 1.2);
+            return points;
+        }
+
+        function gameOver() {
+            gameRunning = false;
+            
+            const totalPoints = calculatePoints();
+            
+            finalScore.innerText = totalPoints;
+            obstaclesPassedSpan.innerText = obstaclesPassed;
+            pointsEarnedSpan.innerText = totalPoints;
+            
+            gameOverScreen.style.display = 'block';
+            
+            // Send to Telegram bot
+            if (tg) {
+                tg.sendData(JSON.stringify({
+                    action: 'game_complete',
+                    score: totalPoints,
+                    obstacles: obstaclesPassed,
+                    combo: combo,
+                    walletConnected: walletConnected
+                }));
+            }
+        }
+
+        // ============================================
+        // UPDATE
+        // ============================================
+        function update() {
+            if (!gameRunning) return;
+            
+            frameCount++;
+            
+            // Player physics
+            player.vy += GRAVITY;
+            player.y += player.vy;
+            
+            if (player.y >= GROUND_Y - player.height) {
+                player.y = GROUND_Y - player.height;
+                player.vy = 0;
+                player.grounded = true;
+            }
+            
+            // Spawn obstacles
+            if (frameCount > spawnTimer) {
+                spawnObstacle();
+                spawnTimer = frameCount + 40 + Math.floor(Math.random() * 40);
+            }
+            
+            // Update obstacles
+            for (let i = obstacles.length - 1; i >= 0; i--) {
+                let obs = obstacles[i];
+                obs.x -= 6;
+                
+                if (!obs.passed && obs.x + obs.width < player.x) {
+                    obs.passed = true;
+                    obstaclesPassed++;
+                    
+                    combo++;
+                    clearTimeout(comboTimeout);
+                    comboTimeout = setTimeout(() => { combo = 0; }, 1000);
+                    
+                    showCombo();
+                    score += 10;
+                    updateScore();
+                }
+                
+                if (!obs.passed &&
+                    player.x < obs.x + obs.width &&
+                    player.x + player.width > obs.x &&
+                    player.y < obs.y + obs.height &&
+                    player.y + player.height > obs.y) {
+                    
+                    if (walletConnected && combo > 0) {
+                        combo--;
+                        obstacles.splice(i, 1);
+                        continue;
+                    }
+                    
+                    gameOver();
+                    return;
+                }
+                
+                if (obs.x + obs.width < 0) {
+                    obstacles.splice(i, 1);
+                }
+            }
+            
+            if (frameCount % 10 === 0) {
+                score += 1;
+                updateScore();
+            }
+        }
+
+        // ============================================
+        // DRAW
+        // ============================================
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Sky
+            ctx.fillStyle = '#2a3f5e';
+            ctx.fillRect(0, 0, canvas.width, GROUND_Y);
+            
+            // Ground
+            ctx.fillStyle = '#4a4a6a';
+            ctx.fillRect(0, GROUND_Y, canvas.width, 5);
+            ctx.fillStyle = '#ffd966';
+            ctx.fillRect(0, GROUND_Y, canvas.width, 2);
+            
+            // Obstacles
+            for (let obs of obstacles) {
+                ctx.fillStyle = '#6a8a4a';
+                ctx.fillRect(obs.x, obs.y, obs.width, obs.height);
+            }
+            
+            // Player
+            ctx.fillStyle = '#4a9eff';
+            ctx.fillRect(player.x, player.y, player.width, player.height);
+            
+            // Head
+            ctx.fillStyle = '#6aaaff';
+            ctx.fillRect(player.x + player.width, player.y - 5, 15, 15);
+            
+            // Eye
+            ctx.fillStyle = 'white';
+            ctx.fillRect(player.x + player.width + 10, player.y - 2, 3, 3);
+            
+            // Pickaxe
+            if (player.grounded) {
+                ctx.fillStyle = '#888888';
+                ctx.fillRect(player.x - 15, player.y + 10, 20, 5);
+                ctx.fillRect(player.x - 20, player.y + 5, 5, 15);
+            }
+            
+            // Wallet indicator
+            if (walletConnected) {
+                ctx.fillStyle = '#4aff4a';
+                ctx.font = '20px Arial';
+                ctx.fillText('🔗', player.x - 30, player.y - 20);
+            }
+            
+            // Combo
+            if (combo > 1) {
+                ctx.fillStyle = '#ffd966';
+                ctx.font = 'bold 24px Arial';
+                ctx.fillText(`${combo}x COMBO!`, 20, 80);
+            }
+        }
+
+        // ============================================
+        // GAME LOOP
+        // ============================================
+        function gameLoop() {
+            update();
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+
+        // ============================================
+        // EVENT LISTENERS
+        // ============================================
+        function handleJump(e) {
+            e.preventDefault();
+            jump();
+            return false;
+        }
+
+        window.addEventListener('keydown', (e) => {
+            if (e.code === 'Space') {
+                e.preventDefault();
+                jump();
+            }
+        });
+
+        canvas.addEventListener('click', handleJump);
+        canvas.addEventListener('touchstart', handleJump, { passive: false });
+
+        document.getElementById('startButton').addEventListener('click', startGame);
+        document.getElementById('restartButton').addEventListener('click', startGame);
+
+        // ============================================
+        // START
+        // ============================================
+        gameLoop();
+    </script>
+</body>
+</html>
