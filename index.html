@@ -43,34 +43,75 @@
     </div>
 
     <script>
+        // ============================================
+        // TELEGRAM WEB APP INTEGRATION
+        // ============================================
         const tg = window.Telegram?.WebApp;
-        if (tg) { tg.ready(); tg.expand(); }
+        if (tg) {
+            tg.ready();
+            tg.expand();
+            console.log("Telegram Web App ready");
+        }
 
+        // ============================================
+        // CANVAS SETUP
+        // ============================================
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
         
+        // Make canvas fill the screen
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
 
+        // UI Elements
         const scoreDisplay = document.getElementById('scoreDisplay');
         const finalScore = document.getElementById('finalScore');
         const startScreen = document.getElementById('startScreen');
         const gameOverScreen = document.getElementById('gameOverScreen');
 
+        // ============================================
+        // GAME VARIABLES - ADJUSTED FOR EASIER PLAY
+        // ============================================
         let gameRunning = false;
         let score = 0;
-        let player = { x: 100, y: 300, width: 40, height: 60, vy: 0, grounded: true };
+        
+        // Player
+        let player = {
+            x: 100,
+            y: 300,
+            width: 40,
+            height: 60,
+            vy: 0,
+            grounded: true
+        };
+        
+        // Obstacles array
         let obstacles = [];
+        
+        // Timing variables
+        let frameCount = 0;
+        let spawnTimer = 60; // First obstacle after 60 frames
+        
+        // Game constants - EASIER SETTINGS
         const GROUND_Y = canvas.height - 100;
         const GRAVITY = 0.8;
         const JUMP_FORCE = -15;
+        const OBSTACLE_SPEED = 5; // Slower speed (was 8)
+        const MIN_SPAWN_TIME = 80;  // Minimum frames between obstacles
+        const MAX_SPAWN_TIME = 120; // Maximum frames between obstacles
 
+        // ============================================
+        // GAME FUNCTIONS
+        // ============================================
         function startGame() {
             gameRunning = true;
             score = 0;
             player.y = GROUND_Y - player.height;
             player.vy = 0;
             obstacles = [];
+            frameCount = 0;
+            spawnTimer = 60; // Wait before first obstacle
+            
             startScreen.style.display = 'none';
             gameOverScreen.style.display = 'none';
             scoreDisplay.innerText = '0';
@@ -85,46 +126,66 @@
         }
 
         function spawnObstacle() {
+            // Random height for variety
+            const height = 40 + Math.floor(Math.random() * 20);
             obstacles.push({
                 x: canvas.width,
-                y: GROUND_Y - 50,
-                width: 30,
-                height: 50,
+                y: GROUND_Y - height,
+                width: 25,
+                height: height,
                 passed: false
             });
         }
 
+        // ============================================
+        // UPDATE GAME LOGIC
+        // ============================================
         function update() {
             if (!gameRunning) return;
             
+            frameCount++;
+            
+            // Player physics
             player.vy += GRAVITY;
             player.y += player.vy;
             
+            // Ground collision
             if (player.y >= GROUND_Y - player.height) {
                 player.y = GROUND_Y - player.height;
                 player.vy = 0;
                 player.grounded = true;
             }
             
-            if (Math.random() < 0.02) spawnObstacle();
+            // SPAWN OBSTACLES - SLOWER AND MORE PREDICTABLE
+            if (frameCount > spawnTimer) {
+                spawnObstacle();
+                // Random delay between obstacles: 80 to 120 frames
+                // This makes gameplay much easier and more predictable
+                spawnTimer = frameCount + MIN_SPAWN_TIME + Math.floor(Math.random() * (MAX_SPAWN_TIME - MIN_SPAWN_TIME));
+            }
             
+            // Update obstacles
             for (let i = obstacles.length - 1; i >= 0; i--) {
-                obstacles[i].x -= 8;
+                obstacles[i].x -= OBSTACLE_SPEED; // Slower speed
                 
+                // Score when passing obstacle
                 if (!obstacles[i].passed && obstacles[i].x + obstacles[i].width < player.x) {
                     obstacles[i].passed = true;
                     score += 10;
                     scoreDisplay.innerText = score;
                 }
                 
+                // Collision detection
                 if (!obstacles[i].passed &&
                     player.x < obstacles[i].x + obstacles[i].width &&
                     player.x + player.width > obstacles[i].x &&
                     player.y < obstacles[i].y + obstacles[i].height &&
                     player.y + player.height > obstacles[i].y) {
                     gameOver();
+                    return;
                 }
                 
+                // Remove off-screen obstacles
                 if (obstacles[i].x + obstacles[i].width < 0) {
                     obstacles.splice(i, 1);
                 }
@@ -136,41 +197,106 @@
             finalScore.innerText = score;
             gameOverScreen.style.display = 'block';
             
+            // Send score to Telegram bot
             if (tg) {
                 tg.sendData(JSON.stringify({
                     action: 'game_complete',
                     score: score
                 }));
+                console.log("Score sent to bot:", score);
             }
         }
 
+        // ============================================
+        // DRAW EVERYTHING
+        // ============================================
         function draw() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             
+            // Sky
+            ctx.fillStyle = '#2a3f5e';
+            ctx.fillRect(0, 0, canvas.width, GROUND_Y);
+            
+            // Ground
             ctx.fillStyle = '#4a4a6a';
             ctx.fillRect(0, GROUND_Y, canvas.width, 10);
             
+            // Ground line
+            ctx.fillStyle = '#ffd966';
+            ctx.fillRect(0, GROUND_Y, canvas.width, 2);
+            
+            // Obstacles
             for (let obs of obstacles) {
                 ctx.fillStyle = '#ff4a4a';
                 ctx.fillRect(obs.x, obs.y, obs.width, obs.height);
             }
             
+            // Player
             ctx.fillStyle = '#4a9eff';
             ctx.fillRect(player.x, player.y, player.width, player.height);
+            
+            // Head
+            ctx.fillStyle = '#6aaaff';
+            ctx.fillRect(player.x + player.width, player.y - 5, 15, 15);
+            
+            // Eye
+            ctx.fillStyle = 'white';
+            ctx.fillRect(player.x + player.width + 8, player.y - 2, 3, 3);
+            
+            // Pickaxe
+            if (player.grounded) {
+                ctx.fillStyle = '#888888';
+                ctx.fillRect(player.x - 15, player.y + 15, 20, 5);
+                ctx.fillRect(player.x - 20, player.y + 10, 5, 15);
+            }
+            
+            // Score on screen
+            ctx.fillStyle = '#ffd966';
+            ctx.font = 'bold 24px Arial';
+            ctx.fillText(`Score: ${score}`, 20, 50);
         }
 
+        // ============================================
+        // GAME LOOP
+        // ============================================
         function gameLoop() {
             update();
             draw();
             requestAnimationFrame(gameLoop);
         }
 
-        canvas.addEventListener('touchstart', (e) => { e.preventDefault(); jump(); });
-        canvas.addEventListener('mousedown', (e) => { e.preventDefault(); jump(); });
+        // ============================================
+        // EVENT LISTENERS
+        // ============================================
+        function handleJump(e) {
+            e.preventDefault();
+            jump();
+            return false;
+        }
 
+        // Touch events for mobile
+        canvas.addEventListener('touchstart', handleJump, { passive: false });
+        canvas.addEventListener('touchend', (e) => e.preventDefault(), { passive: false });
+        
+        // Mouse click for desktop
+        canvas.addEventListener('mousedown', handleJump);
+        canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+
+        // Start button
         document.getElementById('startButton').addEventListener('click', startGame);
+        
+        // Restart button
         document.getElementById('restartButton').addEventListener('click', startGame);
 
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        });
+
+        // ============================================
+        // START THE GAME LOOP
+        // ============================================
         gameLoop();
     </script>
 </body>
