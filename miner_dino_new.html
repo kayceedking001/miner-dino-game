@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Miner Dino</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; }
+        body { background: #0a0f1a; display: flex; justify-content: center; align-items: center; min-height: 100vh; font-family: Arial, sans-serif; }
+        .game-container { position: relative; width: 100%; max-width: 100%; background: #1a1f2e; border-radius: 0; padding: 0; }
+        canvas { display: block; width: 100%; height: 100vh; background: #2a3145; cursor: pointer; touch-action: none; }
+        #ui-overlay { position: absolute; top: 20px; left: 20px; right: 20px; display: flex; justify-content: space-between; z-index: 10; }
+        .score { background: rgba(0,0,0,0.7); padding: 15px 25px; border-radius: 30px; border: 2px solid #ffd966; color: #ffd966; font-size: 28px; font-weight: bold; }
+        .game-over { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.95); padding: 40px; border-radius: 30px; border: 3px solid #ffd966; text-align: center; display: none; z-index: 20; width: 80%; max-width: 400px; }
+        .game-over h2 { color: #ffd966; font-size: 48px; margin-bottom: 20px; }
+        .game-over .final-score { color: #4aff4a; font-size: 64px; margin: 20px 0; }
+        .game-over button { background: #4a9eff; color: white; border: none; padding: 20px 40px; font-size: 28px; border-radius: 15px; cursor: pointer; width: 100%; }
+        .start-screen { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; z-index: 15; width: 100%; }
+        .start-screen h1 { color: #ffd966; font-size: 72px; margin-bottom: 30px; }
+        .start-screen button { background: #4a9eff; color: white; border: none; padding: 25px 50px; font-size: 36px; border-radius: 20px; cursor: pointer; }
+        .start-screen .hint { color: #fff; margin-top: 30px; font-size: 24px; }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <div id="ui-overlay">
+            <div class="score" id="scoreDisplay">0</div>
+        </div>
+        
+        <canvas id="gameCanvas" width="800" height="600"></canvas>
+        
+        <div class="start-screen" id="startScreen">
+            <h1>MINER DINO</h1>
+            <button id="startButton">▶ PLAY</button>
+            <div class="hint">⬆️ TAP TO JUMP</div>
+        </div>
+        
+        <div class="game-over" id="gameOverScreen">
+            <h2>GAME OVER</h2>
+            <div class="final-score" id="finalScore">0</div>
+            <button id="restartButton">PLAY AGAIN</button>
+        </div>
+    </div>
+
+    <script>
+        const tg = window.Telegram?.WebApp;
+        if (tg) { tg.ready(); tg.expand(); }
+
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        const scoreDisplay = document.getElementById('scoreDisplay');
+        const finalScore = document.getElementById('finalScore');
+        const startScreen = document.getElementById('startScreen');
+        const gameOverScreen = document.getElementById('gameOverScreen');
+
+        let gameRunning = false;
+        let score = 0;
+        let player = { x: 100, y: 300, width: 40, height: 60, vy: 0, grounded: true };
+        let obstacles = [];
+        const GROUND_Y = canvas.height - 100;
+        const GRAVITY = 0.8;
+        const JUMP_FORCE = -15;
+
+        function startGame() {
+            gameRunning = true;
+            score = 0;
+            player.y = GROUND_Y - player.height;
+            player.vy = 0;
+            obstacles = [];
+            startScreen.style.display = 'none';
+            gameOverScreen.style.display = 'none';
+            scoreDisplay.innerText = '0';
+        }
+
+        function jump() {
+            if (!gameRunning) return;
+            if (player.grounded) {
+                player.vy = JUMP_FORCE;
+                player.grounded = false;
+            }
+        }
+
+        function spawnObstacle() {
+            obstacles.push({
+                x: canvas.width,
+                y: GROUND_Y - 50,
+                width: 30,
+                height: 50,
+                passed: false
+            });
+        }
+
+        function update() {
+            if (!gameRunning) return;
+            
+            player.vy += GRAVITY;
+            player.y += player.vy;
+            
+            if (player.y >= GROUND_Y - player.height) {
+                player.y = GROUND_Y - player.height;
+                player.vy = 0;
+                player.grounded = true;
+            }
+            
+            if (Math.random() < 0.02) spawnObstacle();
+            
+            for (let i = obstacles.length - 1; i >= 0; i--) {
+                obstacles[i].x -= 8;
+                
+                if (!obstacles[i].passed && obstacles[i].x + obstacles[i].width < player.x) {
+                    obstacles[i].passed = true;
+                    score += 10;
+                    scoreDisplay.innerText = score;
+                }
+                
+                if (!obstacles[i].passed &&
+                    player.x < obstacles[i].x + obstacles[i].width &&
+                    player.x + player.width > obstacles[i].x &&
+                    player.y < obstacles[i].y + obstacles[i].height &&
+                    player.y + player.height > obstacles[i].y) {
+                    gameOver();
+                }
+                
+                if (obstacles[i].x + obstacles[i].width < 0) {
+                    obstacles.splice(i, 1);
+                }
+            }
+        }
+
+        function gameOver() {
+            gameRunning = false;
+            finalScore.innerText = score;
+            gameOverScreen.style.display = 'block';
+            
+            if (tg) {
+                tg.sendData(JSON.stringify({
+                    action: 'game_complete',
+                    score: score
+                }));
+            }
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            ctx.fillStyle = '#4a4a6a';
+            ctx.fillRect(0, GROUND_Y, canvas.width, 10);
+            
+            for (let obs of obstacles) {
+                ctx.fillStyle = '#ff4a4a';
+                ctx.fillRect(obs.x, obs.y, obs.width, obs.height);
+            }
+            
+            ctx.fillStyle = '#4a9eff';
+            ctx.fillRect(player.x, player.y, player.width, player.height);
+        }
+
+        function gameLoop() {
+            update();
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+
+        canvas.addEventListener('touchstart', (e) => { e.preventDefault(); jump(); });
+        canvas.addEventListener('mousedown', (e) => { e.preventDefault(); jump(); });
+
+        document.getElementById('startButton').addEventListener('click', startGame);
+        document.getElementById('restartButton').addEventListener('click', startGame);
+
+        gameLoop();
+    </script>
+</body>
+</html>
