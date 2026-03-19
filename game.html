@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Miner Dino</title>
-    <!-- CRITICAL: Load Telegram Web App script FIRST -->
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -82,7 +81,7 @@
 <body>
     <canvas id="gameCanvas"></canvas>
     <div id="scoreDisplay">0</div>
-    <div id="status">Checking Telegram...</div>
+    <div id="status">Initializing...</div>
     
     <div id="startScreen">
         <h1>MINER DINO</h1>
@@ -98,44 +97,44 @@
 
     <script>
         // ============================================
-        // TELEGRAM WEB APP - OFFICIAL METHOD
+        // TELEGRAM WEB APP - FIXED VERSION
         // ============================================
         
         // Initialize Telegram Web App
         const tg = window.Telegram?.WebApp;
-        let telegramUser = null;
         let isTelegram = false;
+        let userName = "Player";
         
-        // Check if we're in Telegram
         if (tg) {
             try {
-                // This is the official way to initialize
                 tg.ready();
                 tg.expand();
                 
-                // Get user data
+                // Check if we have user data
                 if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
-                    telegramUser = tg.initDataUnsafe.user;
                     isTelegram = true;
-                    document.getElementById('status').innerHTML = `✅ Telegram: ${telegramUser.first_name}`;
+                    userName = tg.initDataUnsafe.user.first_name || "Player";
+                    document.getElementById('status').innerHTML = `✅ Telegram: ${userName}`;
                     document.getElementById('status').style.borderColor = '#4aff4a';
                     document.getElementById('status').style.color = '#4aff4a';
-                    console.log('✅ Telegram connected:', telegramUser);
+                    console.log('✅ Telegram connected:', tg.initDataUnsafe.user);
                 } else {
-                    document.getElementById('status').innerHTML = '⚠️ Telegram: No user data';
-                    document.getElementById('status').style.borderColor = '#ffd966';
-                    document.getElementById('status').style.color = '#ffd966';
-                    console.log('⚠️ Telegram WebApp loaded but no user data');
+                    // Still in Telegram but no user data - this is OK
+                    isTelegram = true;
+                    document.getElementById('status').innerHTML = '✅ Telegram Connected';
+                    document.getElementById('status').style.borderColor = '#4aff4a';
+                    document.getElementById('status').style.color = '#4aff4a';
+                    console.log('✅ Telegram connected (no user data)');
                 }
             } catch (e) {
-                document.getElementById('status').innerHTML = '❌ Telegram error';
+                document.getElementById('status').innerHTML = '❌ Error';
                 console.error('Telegram error:', e);
             }
         } else {
-            document.getElementById('status').innerHTML = '❌ Not in Telegram';
+            document.getElementById('status').innerHTML = '❌ Browser Mode';
             document.getElementById('status').style.borderColor = '#ff6b6b';
             document.getElementById('status').style.color = '#ff6b6b';
-            console.log('❌ Not running in Telegram');
+            console.log('❌ Not in Telegram');
         }
 
         // ============================================
@@ -217,7 +216,7 @@
             console.log('In Telegram?', isTelegram);
             
             if (!isTelegram || !tg) {
-                alert(`⚠️ Browser Mode - Score ${score} not saved\nPlay inside Telegram to earn points!`);
+                alert(`⚠️ Browser Mode - Score ${score} not saved`);
                 return false;
             }
             
@@ -239,12 +238,6 @@
                 // Show success message
                 alert(`✅ Score ${score} sent to bot!`);
                 
-                // Also update main button if available
-                if (tg.MainButton) {
-                    tg.MainButton.setText(`Score: ${score}`);
-                    tg.MainButton.show();
-                }
-                
                 return true;
                 
             } catch (e) {
@@ -260,7 +253,6 @@
             document.getElementById('gameOverScreen').style.display = 'flex';
             
             console.log('🎮 Game Over! Score:', score);
-            console.log('Telegram status:', isTelegram ? 'Connected' : 'Not connected');
             
             // Send score to bot
             sendScoreToBot(score);
