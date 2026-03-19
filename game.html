@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Miner Dino</title>
+    <!-- IMPORTANT: Load Telegram Web App script -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { 
@@ -96,31 +98,40 @@
 
     <script>
         // ============================================
-        // TELEGRAM WEB APP - SIMPLE AND GUARANTEED
+        // TELEGRAM WEB APP - CORRECT VERSION
         // ============================================
         let tg = null;
         let telegramReady = false;
         
-        // Try to initialize Telegram
+        // Initialize Telegram
         try {
             if (window.Telegram && window.Telegram.WebApp) {
                 tg = window.Telegram.WebApp;
                 tg.ready();
                 tg.expand();
-                telegramReady = true;
-                document.getElementById('status').innerHTML = '✅ Telegram Connected';
-                document.getElementById('status').style.borderColor = '#4aff4a';
-                document.getElementById('status').style.color = '#4aff4a';
-                console.log('✅ Telegram ready');
+                
+                // Check if we're really in Telegram
+                if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
+                    telegramReady = true;
+                    document.getElementById('status').innerHTML = '✅ Telegram: ' + tg.initDataUnsafe.user.first_name;
+                    document.getElementById('status').style.borderColor = '#4aff4a';
+                    document.getElementById('status').style.color = '#4aff4a';
+                    console.log('✅ Telegram connected for user:', tg.initDataUnsafe.user.first_name);
+                } else {
+                    document.getElementById('status').innerHTML = '⚠️ Telegram: No user data';
+                    document.getElementById('status').style.borderColor = '#ffd966';
+                    document.getElementById('status').style.color = '#ffd966';
+                    console.log('⚠️ Telegram WebApp loaded but no user data');
+                }
             } else {
-                document.getElementById('status').innerHTML = '⚠️ Browser Mode';
-                document.getElementById('status').style.borderColor = '#ffd966';
-                document.getElementById('status').style.color = '#ffd966';
-                console.log('⚠️ Running in browser');
+                document.getElementById('status').innerHTML = '❌ Telegram not detected';
+                document.getElementById('status').style.borderColor = '#ff6b6b';
+                document.getElementById('status').style.color = '#ff6b6b';
+                console.log('❌ Telegram WebApp not found');
             }
         } catch (e) {
             console.log('Telegram error:', e);
-            document.getElementById('status').innerHTML = '❌ Error';
+            document.getElementById('status').innerHTML = '❌ Error: ' + e.message;
         }
 
         // ============================================
@@ -142,9 +153,12 @@
         let gameRunning = false;
         let score = 0;
         
+        // Update GROUND_Y based on canvas height
+        const GROUND_Y = canvas.height - 100;
+        
         let player = {
             x: 100,
-            y: 300,
+            y: GROUND_Y - 60,
             width: 40,
             height: 60,
             vy: 0,
@@ -155,7 +169,6 @@
         let frameCount = 0;
         let spawnTimer = 60;
         
-        const GROUND_Y = canvas.height - 100;
         const GRAVITY = 0.8;
         const JUMP_FORCE = -15;
         const OBSTACLE_SPEED = 5;
@@ -201,6 +214,7 @@
             document.getElementById('gameOverScreen').style.display = 'flex';
             
             console.log('Game Over! Score:', score);
+            console.log('Telegram ready?', telegramReady);
             
             // Send to Telegram if connected
             if (telegramReady && tg) {
@@ -209,14 +223,21 @@
                         action: 'game_complete',
                         score: score
                     });
+                    console.log('Sending data:', data);
                     tg.sendData(data);
                     console.log('✅ Score sent to bot');
-                    alert(`✅ Score ${score} sent!`);
+                    
+                    // Show confirmation
+                    setTimeout(() => {
+                        alert(`✅ Score ${score} sent to bot!`);
+                    }, 100);
+                    
                 } catch (e) {
                     console.log('❌ Failed to send:', e);
+                    alert('❌ Error sending score: ' + e.message);
                 }
             } else {
-                alert(`⚠️ Browser Mode - Score ${score} not saved`);
+                alert(`⚠️ Browser Mode - Score ${score} not saved\nPlay inside Telegram to earn points!`);
             }
         }
 
@@ -292,6 +313,10 @@
             // Head
             ctx.fillStyle = '#6aaaff';
             ctx.fillRect(player.x + player.width, player.y - 5, 15, 15);
+            
+            // Eye
+            ctx.fillStyle = 'white';
+            ctx.fillRect(player.x + player.width + 8, player.y - 2, 3, 3);
         }
 
         // ============================================
