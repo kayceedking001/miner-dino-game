@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Telegram Test</title>
+    <style>
+        body {
+            background: #0a0f1a;
+            color: white;
+            font-family: Arial, sans-serif;
+            text-align: center;
+            padding: 50px 20px;
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+        .status-box {
+            background: #1a1f2e;
+            border: 3px solid #ffd966;
+            border-radius: 20px;
+            padding: 30px;
+            margin: 20px;
+            width: 90%;
+            max-width: 500px;
+        }
+        h1 {
+            color: #ffd966;
+            font-size: 36px;
+            margin-bottom: 30px;
+        }
+        .status {
+            font-size: 24px;
+            margin: 20px 0;
+            padding: 15px;
+            border-radius: 10px;
+        }
+        .good { color: #4aff4a; }
+        .bad { color: #ff6b6b; }
+        button {
+            background: #4a9eff;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 20px;
+            border-radius: 10px;
+            cursor: pointer;
+            margin: 10px;
+            width: 200px;
+        }
+        .info {
+            background: #2a3145;
+            padding: 15px;
+            border-radius: 10px;
+            text-align: left;
+            margin: 20px 0;
+            font-family: monospace;
+            font-size: 14px;
+            word-break: break-all;
+        }
+    </style>
+</head>
+<body>
+    <div class="status-box">
+        <h1>🔍 TELEGRAM TEST</h1>
+        
+        <div class="status" id="tgStatus">Checking...</div>
+        <div class="status" id="platformStatus">-</div>
+        
+        <button onclick="testTelegram()">📤 SEND TEST DATA</button>
+        <button onclick="window.location.reload()">🔄 REFRESH</button>
+        
+        <div class="info" id="infoBox"></div>
+        
+        <div style="margin-top: 30px; font-size: 14px; color: #8f9bb5;">
+            Open this in Telegram Web App to test
+        </div>
+    </div>
+
+    <script>
+        // ============================================
+        // TELEGRAM WEB APP TEST
+        // ============================================
+        const tg = window.Telegram?.WebApp;
+        const statusDiv = document.getElementById('tgStatus');
+        const platformDiv = document.getElementById('platformStatus');
+        const infoDiv = document.getElementById('infoBox');
+        
+        let telegramReady = false;
+        
+        function updateStatus() {
+            let info = '';
+            
+            // Check if Telegram is available
+            if (tg) {
+                telegramReady = true;
+                statusDiv.innerHTML = '✅ TELEGRAM DETECTED';
+                statusDiv.className = 'status good';
+                
+                try {
+                    tg.ready();
+                    tg.expand();
+                    
+                    platformDiv.innerHTML = `Platform: ${tg.platform || 'unknown'}`;
+                    
+                    info += `Platform: ${tg.platform}\n`;
+                    info += `Version: ${tg.version || 'unknown'}\n`;
+                    info += `Theme: ${tg.colorScheme || 'unknown'}\n`;
+                    
+                    if (tg.initDataUnsafe?.user) {
+                        const user = tg.initDataUnsafe.user;
+                        info += `User ID: ${user.id}\n`;
+                        info += `Name: ${user.first_name}\n`;
+                    } else {
+                        info += 'User: not available\n';
+                    }
+                    
+                } catch (e) {
+                    info += `Error: ${e.message}\n`;
+                }
+            } else {
+                telegramReady = false;
+                statusDiv.innerHTML = '❌ NO TELEGRAM DETECTED';
+                statusDiv.className = 'status bad';
+                platformDiv.innerHTML = 'Open in Telegram Web App';
+                
+                // Check URL parameters
+                const urlParams = new URLSearchParams(window.location.search);
+                if (urlParams.has('tgWebApp')) {
+                    info += 'tgWebApp parameter found in URL\n';
+                } else {
+                    info += 'No tgWebApp parameter\n';
+                }
+            }
+            
+            // Browser info
+            info += `\nUser Agent: ${navigator.userAgent.substring(0, 100)}...\n`;
+            info += `URL: ${window.location.href}\n`;
+            
+            infoDiv.innerText = info;
+        }
+        
+        function testTelegram() {
+            if (telegramReady && tg) {
+                try {
+                    const testData = JSON.stringify({
+                        action: 'test',
+                        message: 'Hello from test!',
+                        timestamp: Date.now()
+                    });
+                    
+                    console.log('Sending:', testData);
+                    tg.sendData(testData);
+                    
+                    alert('✅ Test data sent to bot!\nCheck your bot console.');
+                } catch (e) {
+                    alert('❌ Error sending: ' + e.message);
+                }
+            } else {
+                alert('❌ Not in Telegram - cannot send data');
+            }
+        }
+        
+        // Run on load
+        updateStatus();
+        console.log('Telegram object:', window.Telegram);
+    </script>
+</body>
+</html>
