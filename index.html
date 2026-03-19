@@ -44,40 +44,35 @@
 
     <script>
         // ============================================
-        // TELEGRAM WEB APP - FORCED DETECTION
+        // TELEGRAM WEB APP - FIXED VERSION
         // ============================================
-        // Try multiple ways to detect Telegram
         let tg = null;
         let telegramReady = false;
         
-        // Method 1: Standard way
+        // Check if Telegram Web App is available (standard way)
         if (window.Telegram?.WebApp) {
             tg = window.Telegram.WebApp;
-            console.log("✅ Method 1: Telegram detected");
-        }
-        
-        // Method 2: Check URL parameters (for debugging)
-        const urlParams = new URLSearchParams(window.location.search);
-        if (urlParams.has('tgWebApp')) {
-            console.log("📱 tgWebApp parameter found in URL");
-        }
-        
-        // Initialize if found
-        if (tg) {
+            console.log("✅ Telegram WebApp found");
+            
             try {
                 tg.ready();
                 tg.expand();
                 telegramReady = true;
-                console.log("✅ Telegram Web App initialized");
+                console.log("✅ Telegram initialized");
                 console.log("📱 Platform:", tg.platform || "unknown");
                 console.log("👤 User:", tg.initDataUnsafe?.user?.id || "unknown");
             } catch (e) {
                 console.error("❌ Telegram init error:", e);
             }
         } else {
-            console.log("⚠️ No Telegram detected - running in browser mode");
-            // For testing in browser, we'll simulate Telegram
-            telegramReady = false;
+            console.log("⚠️ Telegram.WebApp not found");
+            
+            // Check URL hash for Telegram data (debug only)
+            if (window.location.hash.includes('tgWebAppData')) {
+                console.log("✅ Telegram data found in URL hash");
+                // Force reload to initialize Telegram
+                window.location.reload();
+            }
         }
 
         // ============================================
@@ -232,15 +227,14 @@
                     tg.sendData(data);
                     console.log("✅ Data sent successfully");
                     
-                    // Show confirmation in game
-                    alert(`Score ${score} sent to bot!`);
+                    // Show confirmation
+                    alert(`✅ Score ${score} sent to bot!`);
                 } catch (e) {
                     console.error("❌ Failed to send:", e);
-                    alert("❌ Failed to send score to bot");
                 }
             } else {
                 console.log("⚠️ Not in Telegram - score not sent");
-                alert(`⚠️ Not in Telegram\nScore ${score} not sent\nPlay inside Telegram to earn points!`);
+                alert("⚠️ Playing in browser mode\nScore will not be saved.\nOpen in Telegram to earn points!");
             }
         }
 
@@ -300,7 +294,7 @@
             } else {
                 ctx.fillStyle = '#ff6b6b';
                 ctx.font = '16px Arial';
-                ctx.fillText('❌ Not in Telegram', canvas.width - 180, 50);
+                ctx.fillText('❌ Browser Mode', canvas.width - 180, 50);
             }
         }
 
@@ -344,7 +338,6 @@
         // START
         // ============================================
         console.log("🎮 Game loaded. Telegram ready:", telegramReady);
-        console.log("📱 User agent:", navigator.userAgent);
         gameLoop();
     </script>
 </body>
