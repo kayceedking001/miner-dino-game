@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Miner Dino</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            background: #0a0f1a; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            min-height: 100vh; 
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+        }
+        #gameCanvas { 
+            display: block; 
+            width: 100%; 
+            height: 100vh; 
+            background: #2a3145; 
+            touch-action: none;
+        }
+        #scoreDisplay {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(0,0,0,0.7);
+            padding: 15px 25px;
+            border-radius: 30px;
+            border: 2px solid #ffd966;
+            color: #ffd966;
+            font-size: 28px;
+            font-weight: bold;
+            z-index: 10;
+        }
+        #status {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(0,0,0,0.7);
+            padding: 10px 20px;
+            border-radius: 30px;
+            border: 2px solid #4aff4a;
+            color: #4aff4a;
+            font-size: 16px;
+            z-index: 10;
+        }
+        #startScreen, #gameOverScreen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background: rgba(0,0,0,0.9);
+            z-index: 20;
+        }
+        #gameOverScreen { display: none; }
+        h1 { color: #ffd966; font-size: 72px; margin-bottom: 30px; }
+        button {
+            background: #4a9eff;
+            color: white;
+            border: none;
+            padding: 20px 50px;
+            font-size: 32px;
+            border-radius: 20px;
+            cursor: pointer;
+            border: 2px solid white;
+        }
+        .hint { color: #fff; margin-top: 30px; font-size: 20px; }
+        .final-score { color: #4aff4a; font-size: 64px; margin: 30px; }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas"></canvas>
+    <div id="scoreDisplay">0</div>
+    <div id="status">Initializing...</div>
+    
+    <div id="startScreen">
+        <h1>MINER DINO</h1>
+        <button onclick="startGame()">▶ PLAY</button>
+        <div class="hint">⬆️ TAP ANYWHERE TO JUMP</div>
+    </div>
+    
+    <div id="gameOverScreen">
+        <h1>GAME OVER</h1>
+        <div class="final-score" id="finalScore">0</div>
+        <button onclick="startGame()">PLAY AGAIN</button>
+    </div>
+
+    <script>
+        // ============================================
+        // TELEGRAM WEB APP - SIMPLE AND GUARANTEED
+        // ============================================
+        let tg = null;
+        let telegramReady = false;
+        
+        // Try to initialize Telegram
+        try {
+            if (window.Telegram && window.Telegram.WebApp) {
+                tg = window.Telegram.WebApp;
+                tg.ready();
+                tg.expand();
+                telegramReady = true;
+                document.getElementById('status').innerHTML = '✅ Telegram Connected';
+                document.getElementById('status').style.borderColor = '#4aff4a';
+                document.getElementById('status').style.color = '#4aff4a';
+                console.log('✅ Telegram ready');
+            } else {
+                document.getElementById('status').innerHTML = '⚠️ Browser Mode';
+                document.getElementById('status').style.borderColor = '#ffd966';
+                document.getElementById('status').style.color = '#ffd966';
+                console.log('⚠️ Running in browser');
+            }
+        } catch (e) {
+            console.log('Telegram error:', e);
+            document.getElementById('status').innerHTML = '❌ Error';
+        }
+
+        // ============================================
+        // CANVAS SETUP
+        // ============================================
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+
+        // ============================================
+        // GAME VARIABLES
+        // ============================================
+        let gameRunning = false;
+        let score = 0;
+        
+        let player = {
+            x: 100,
+            y: 300,
+            width: 40,
+            height: 60,
+            vy: 0,
+            grounded: true
+        };
+        
+        let obstacles = [];
+        let frameCount = 0;
+        let spawnTimer = 60;
+        
+        const GROUND_Y = canvas.height - 100;
+        const GRAVITY = 0.8;
+        const JUMP_FORCE = -15;
+        const OBSTACLE_SPEED = 5;
+
+        // ============================================
+        // GAME FUNCTIONS
+        // ============================================
+        function startGame() {
+            gameRunning = true;
+            score = 0;
+            player.y = GROUND_Y - player.height;
+            player.vy = 0;
+            obstacles = [];
+            frameCount = 0;
+            spawnTimer = 60;
+            
+            document.getElementById('startScreen').style.display = 'none';
+            document.getElementById('gameOverScreen').style.display = 'none';
+            document.getElementById('scoreDisplay').innerText = '0';
+        }
+
+        function jump() {
+            if (!gameRunning) return;
+            if (player.grounded) {
+                player.vy = JUMP_FORCE;
+                player.grounded = false;
+            }
+        }
+
+        function spawnObstacle() {
+            obstacles.push({
+                x: canvas.width,
+                y: GROUND_Y - 50,
+                width: 25,
+                height: 50,
+                passed: false
+            });
+        }
+
+        function gameOver() {
+            gameRunning = false;
+            document.getElementById('finalScore').innerText = score;
+            document.getElementById('gameOverScreen').style.display = 'flex';
+            
+            console.log('Game Over! Score:', score);
+            
+            // Send to Telegram if connected
+            if (telegramReady && tg) {
+                try {
+                    const data = JSON.stringify({
+                        action: 'game_complete',
+                        score: score
+                    });
+                    tg.sendData(data);
+                    console.log('✅ Score sent to bot');
+                    alert(`✅ Score ${score} sent!`);
+                } catch (e) {
+                    console.log('❌ Failed to send:', e);
+                }
+            } else {
+                alert(`⚠️ Browser Mode - Score ${score} not saved`);
+            }
+        }
+
+        // ============================================
+        // UPDATE
+        // ============================================
+        function update() {
+            if (!gameRunning) return;
+            
+            frameCount++;
+            
+            player.vy += GRAVITY;
+            player.y += player.vy;
+            
+            if (player.y >= GROUND_Y - player.height) {
+                player.y = GROUND_Y - player.height;
+                player.vy = 0;
+                player.grounded = true;
+            }
+            
+            // Spawn obstacles
+            if (frameCount > spawnTimer) {
+                spawnObstacle();
+                spawnTimer = frameCount + 80 + Math.floor(Math.random() * 40);
+            }
+            
+            // Update obstacles
+            for (let i = obstacles.length - 1; i >= 0; i--) {
+                obstacles[i].x -= OBSTACLE_SPEED;
+                
+                if (!obstacles[i].passed && obstacles[i].x + obstacles[i].width < player.x) {
+                    obstacles[i].passed = true;
+                    score += 10;
+                    document.getElementById('scoreDisplay').innerText = score;
+                }
+                
+                // Collision
+                if (!obstacles[i].passed &&
+                    player.x < obstacles[i].x + obstacles[i].width &&
+                    player.x + player.width > obstacles[i].x &&
+                    player.y < obstacles[i].y + obstacles[i].height &&
+                    player.y + player.height > obstacles[i].y) {
+                    gameOver();
+                    return;
+                }
+                
+                if (obstacles[i].x + obstacles[i].width < 0) {
+                    obstacles.splice(i, 1);
+                }
+            }
+        }
+
+        // ============================================
+        // DRAW
+        // ============================================
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Ground
+            ctx.fillStyle = '#4a4a6a';
+            ctx.fillRect(0, GROUND_Y, canvas.width, 10);
+            
+            // Obstacles
+            ctx.fillStyle = '#ff4a4a';
+            for (let obs of obstacles) {
+                ctx.fillRect(obs.x, obs.y, obs.width, obs.height);
+            }
+            
+            // Player
+            ctx.fillStyle = '#4a9eff';
+            ctx.fillRect(player.x, player.y, player.width, player.height);
+            
+            // Head
+            ctx.fillStyle = '#6aaaff';
+            ctx.fillRect(player.x + player.width, player.y - 5, 15, 15);
+        }
+
+        // ============================================
+        // GAME LOOP
+        // ============================================
+        function gameLoop() {
+            update();
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+
+        // ============================================
+        // EVENT LISTENERS
+        // ============================================
+        canvas.addEventListener('touchstart', (e) => { e.preventDefault(); jump(); });
+        canvas.addEventListener('mousedown', (e) => { e.preventDefault(); jump(); });
+        canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+
+        // ============================================
+        // START
+        // ============================================
+        gameLoop();
+    </script>
+</body>
+</html>
